@@ -131,7 +131,18 @@ dmypy.json
 .idea/
 .codebuddy/
 .cache/
-.codex/WORKLOG.md
+.codex/
+# Local-only scheduler jobs and documentation artifacts
+*.pbs
+*.tar
+*.doc
+*.docx
+*.pdf
+*.ppt
+*.pptx
+*.xls
+*.xlsx
+docs/
 artifacts/
 output/
 runtime/
@@ -140,3 +151,6 @@ data/hopper_reward/
 outputs-dpo-qwen-v1/
 cache/
 outputs-*/
+data/medical_closed_loop/
+eval_results/medical_closed_loop/
+eval/lm_eval/generated/
