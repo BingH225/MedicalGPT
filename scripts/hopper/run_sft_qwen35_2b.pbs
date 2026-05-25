@@ -1,0 +1,82 @@
+#!/bin/bash
+#PBS -N medgpt_sft_q35_2b
+#PBS -q auto
+#PBS -P CFP03-CF-035
+#PBS -l select=1:ncpus=16:ngpus=1:mem=220gb
+#PBS -l walltime=08:00:00
+#PBS -j oe
+#PBS -o /scratch/e1561245/cot_yz/medicalgpt/output/hopper/pbs_logs/
+
+set -euo pipefail
+
+SCRIPT_DIR=/scratch/e1561245/cot_yz/medicalgpt/scripts/hopper
+source "${SCRIPT_DIR}/common_env.sh"
+
+ensure_common_dirs
+module load "${APPTAINER_MODULE}"
+normalize_cuda_visible_devices
+
+RUN_DIR="${OUTPUT_ROOT}/sft_${PBS_JOBID}"
+ADAPTER_DIR="${RUN_DIR}/adapter"
+MERGED_DIR="${ARTIFACT_ROOT}/merged/sft-qwen35-2b"
+BIND_PATHS="$(apptainer_bind_paths)"
+
+mkdir -p "${RUN_DIR}" "${ARTIFACT_ROOT}/merged"
+nvidia-smi > "${RUN_DIR}/nvidia_smi.txt"
+printf "[INFO] stage=sft\n[INFO] job_id=%s\n[INFO] run_dir=%s\n[INFO] start_time=%s\n" \
+  "${PBS_JOBID}" "${RUN_DIR}" "$(date -Iseconds)" | tee -a "${RUN_DIR}/meta.log"
+
+apptainer exec --nv --bind "${BIND_PATHS}" "${IMAGE_SIF}" bash -lc "
+set -euo pipefail
+$(container_env_exports)
+source '${VENV_DIR}/bin/activate'
+cd '${PROJECT_ROOT}'
+python -u training/supervised_finetuning.py \
+  --model_name_or_path '${BASE_MODEL}' \
+  --train_file_dir '${HOPPER_SFT_DATA_DIR}' \
+  --validation_file_dir '${HOPPER_SFT_DATA_DIR}' \
+  --per_device_train_batch_size 2 \
+  --per_device_eval_batch_size 2 \
+  --do_train \
+  --do_eval \
+  --use_peft True \
+  --max_train_samples '${SFT_MAX_TRAIN_SAMPLES}' \
+  --max_eval_samples 32 \
+  --model_max_length 1024 \
+  --num_train_epochs 1 \
+  --learning_rate 2e-5 \
+  --warmup_steps 5 \
+  --weight_decay 0.05 \
+  --logging_strategy steps \
+  --logging_steps 10 \
+  --eval_steps 25 \
+  --eval_strategy steps \
+  --save_steps 100 \
+  --save_strategy steps \
+  --save_total_limit 2 \
+  --gradient_accumulation_steps 8 \
+  --preprocessing_num_workers 4 \
+  --output_dir '${ADAPTER_DIR}' \
+  --ddp_timeout 30000 \
+  --logging_first_step True \
+  --target_modules all \
+  --lora_rank 8 \
+  --lora_alpha 16 \
+  --lora_dropout 0.05 \
+  --torch_dtype float16 \
+  --fp16 \
+  --report_to tensorboard \
+  --ddp_find_unused_parameters False \
+  --gradient_checkpointing True \
+  --tool_format default \
+  --cache_dir '${HF_HOME}'
+" > "${RUN_DIR}/train.log" 2>&1
+
+"${SCRIPT_DIR}/run_merge_in_container.sh" \
+  "${BASE_MODEL}" \
+  "${BASE_MODEL}" \
+  "${ADAPTER_DIR}" \
+  "${MERGED_DIR}" > "${RUN_DIR}/merge.log" 2>&1
+
+printf "[INFO] merged_dir=%s\n[INFO] end_time=%s\n" "${MERGED_DIR}" "$(date -Iseconds)" | tee -a "${RUN_DIR}/meta.log"
+echo "run_dir=${RUN_DIR}"

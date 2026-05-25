@@ -23,11 +23,14 @@ from transformers import (
     BitsAndBytesConfig,
 )
 from transformers.integrations import is_deepspeed_zero3_enabled
-from trl import DPOTrainer, DPOConfig
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from training.trl_compat import patch_fsdp_module_alias
 from training.tool_utils import get_tool_utils, FunctionCall, load_local_json_datasets
 from training.template import get_conv_template
+
+patch_fsdp_module_alias()
+from trl import DPOTrainer, DPOConfig
 
 os.environ["TOKENIZERS_PARALLELISM"] = "FALSE"
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"

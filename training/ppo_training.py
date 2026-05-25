@@ -18,15 +18,18 @@ from transformers import (
     HfArgumentParser,
     AutoModelForCausalLM,
 )
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from training.trl_compat import patch_fsdp_module_alias
+from training.template import get_conv_template
+
+patch_fsdp_module_alias()
 from trl import (
     RLOOConfig,
     RLOOTrainer,
     ModelConfig,
     get_peft_config,
 )
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from training.template import get_conv_template
 
 os.environ["TOKENIZERS_PARALLELISM"] = "FALSE"
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"

@@ -7,7 +7,7 @@ scikit-learn
 tensorboard
 tqdm>=4.47.0
 transformers>=5.6.0
-trl>=0.29.0
+trl==0.29.1
 # bitsandbytes # not available on pypi
 latex2sympy2_extended
 math-verify==0.5.2

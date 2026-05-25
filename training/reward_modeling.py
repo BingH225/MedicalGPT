@@ -370,14 +370,19 @@ def main():
             trust_remote_code=model_args.trust_remote_code,
             cache_dir=model_args.cache_dir
         )
+        model_kwargs = {
+            "config": config,
+            "torch_dtype": torch_dtype,
+            "device_map": model_args.device_map,
+            "trust_remote_code": model_args.trust_remote_code,
+        }
+        if model_args.load_in_4bit:
+            model_kwargs["load_in_4bit"] = True
+        if model_args.load_in_8bit:
+            model_kwargs["load_in_8bit"] = True
         model = AutoModelForSequenceClassification.from_pretrained(
             model_args.model_name_or_path,
-            config=config,
-            torch_dtype=torch_dtype,
-            load_in_4bit=model_args.load_in_4bit,
-            load_in_8bit=model_args.load_in_8bit,
-            device_map=model_args.device_map,
-            trust_remote_code=model_args.trust_remote_code,
+            **model_kwargs,
         )
     else:
         raise ValueError(f"Error, model_name_or_path is None, RM must be loaded from a pre-trained model")

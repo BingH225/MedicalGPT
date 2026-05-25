@@ -131,6 +131,12 @@ dmypy.json
 .idea/
 .codebuddy/
 .cache/
+.codex/WORKLOG.md
+artifacts/
+output/
+runtime/
+data/hopper_sft/
+data/hopper_reward/
 outputs-dpo-qwen-v1/
 cache/
 outputs-*/

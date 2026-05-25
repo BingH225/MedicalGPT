@@ -22,9 +22,13 @@ from transformers import (
     AutoTokenizer,
     AutoConfig,
     AutoModelForCausalLM,
-    AutoModelForConditionalGeneration,
     AutoModelForSequenceClassification,
 )
+
+try:
+    from transformers import AutoModelForConditionalGeneration
+except ImportError:
+    AutoModelForConditionalGeneration = None
 
 
 def _overwrite_tokenizer_files_from_base(base_dir: str, output_dir: str):
@@ -86,13 +90,15 @@ def main():
 
     if peft_config.task_type == "SEQ_CLS":
         print("Loading LoRA for sequence classification model")
+        model_kwargs = {
+            "num_labels": 1,
+            "torch_dtype": torch.float32,
+            "trust_remote_code": True,
+            "device_map": "auto",
+        }
         base_model = AutoModelForSequenceClassification.from_pretrained(
             base_model_path,
-            num_labels=1,
-            load_in_8bit=False,
-            torch_dtype=torch.float32,
-            trust_remote_code=True,
-            device_map="auto",
+            **model_kwargs,
         )
     else:
         # 自动判断模型架构：如果是多模态模型（如 Qwen3_5ForConditionalGeneration），
@@ -101,7 +107,7 @@ def main():
         base_cfg = AutoConfig.from_pretrained(base_model_path, trust_remote_code=True)
         archs = getattr(base_cfg, 'architectures', []) or []
         is_conditional = any('ConditionalGeneration' in a for a in archs)
-        if is_conditional:
+        if is_conditional and AutoModelForConditionalGeneration is not None:
             print(f"Loading LoRA for conditional generation model (archs={archs})")
             base_model = AutoModelForConditionalGeneration.from_pretrained(
                 base_model_path,
@@ -110,6 +116,11 @@ def main():
                 device_map="auto",
             )
         else:
+            if is_conditional and AutoModelForConditionalGeneration is None:
+                print(
+                    "AutoModelForConditionalGeneration is unavailable in this transformers version; "
+                    "falling back to AutoModelForCausalLM."
+                )
             print(f"Loading LoRA for causal language model (archs={archs})")
             base_model = AutoModelForCausalLM.from_pretrained(
                 base_model_path,
